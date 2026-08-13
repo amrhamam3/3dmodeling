@@ -1,0 +1,61 @@
+name: Build CubeStudio
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: استنساخ المستودع
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------
+      # Python مطلوب بواجهة CMake الرسمية لـ GLAD 2 (تشغّل
+      # سكربت التوليد داخلياً أثناء cmake --build). لا حاجة
+      # لأي أمر يدوي بعد الآن - glad_add_library() في
+      # CMakeLists.txt يتكفّل بكل شيء.
+      # -------------------------------------------------
+      - name: تثبيت Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # -------------------------------------------------
+      # تثبيت تبعيات النظام (Linux فقط - مكتبات X11 لأجل GLFW)
+      # -------------------------------------------------
+      - name: تبعيات النظام (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorg-dev libgl1-mesa-dev
+
+      # -------------------------------------------------
+      # إعداد وبناء المشروع عبر CMake
+      # (يجلب GLFW / GLM / ImGui / GLAD تلقائياً عبر FetchContent)
+      # -------------------------------------------------
+      - name: إعداد CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: بناء المشروع
+        run: cmake --build build --config Release
+
+      # -------------------------------------------------
+      # رفع الملف التنفيذي كـ Artifact لتحميله من صفحة الـ Run
+      # -------------------------------------------------
+      - name: رفع الناتج
+        uses: actions/upload-artifact@v4
+        with:
+          name: CubeStudio-${{ matrix.os }}
+          path: |
+            build/**/CubeStudio*
+            build/**/shaders/**
+            build/**/fonts/**
