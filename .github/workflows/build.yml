@@ -20,9 +20,7 @@ jobs:
 
       # -------------------------------------------------
       # Python مطلوب بواجهة CMake الرسمية لـ GLAD 2 (تشغّل
-      # سكربت التوليد داخلياً أثناء cmake --build). لا حاجة
-      # لأي أمر يدوي بعد الآن - glad_add_library() في
-      # CMakeLists.txt يتكفّل بكل شيء.
+      # سكربت التوليد داخلياً أثناء cmake --build)
       # -------------------------------------------------
       - name: تثبيت Python
         uses: actions/setup-python@v5
@@ -49,13 +47,25 @@ jobs:
         run: cmake --build build --config Release
 
       # -------------------------------------------------
-      # رفع الملف التنفيذي كـ Artifact لتحميله من صفحة الـ Run
+      # تجميع الناتج في مجلد ثابت "artifact/" بدل الاعتماد على
+      # تخمين مكان الملف التنفيذي (يختلف بين لينكس وويندوز:
+      # لينكس يضعه مباشرة في build/، وويندوز (Visual Studio
+      # multi-config) يضعه في build/Release/) - نستخدم find
+      # للبحث عنه أينما كان، ثم نطبع محتوى المجلد للتأكد بالسجلات.
       # -------------------------------------------------
+      - name: تجهيز حزمة الإخراج
+        shell: bash
+        run: |
+          mkdir -p artifact
+          find build -maxdepth 3 -iname "CubeStudio*" -type f -exec cp -v {} artifact/ \;
+          find build -maxdepth 3 -iname "shaders" -type d -exec cp -rv {} artifact/ \;
+          find build -maxdepth 3 -iname "fonts" -type d -exec cp -rv {} artifact/ \;
+          echo "--- محتوى artifact/ ---"
+          ls -laR artifact
+
       - name: رفع الناتج
         uses: actions/upload-artifact@v4
         with:
           name: CubeStudio-${{ matrix.os }}
-          path: |
-            build/**/CubeStudio*
-            build/**/shaders/**
-            build/**/fonts/**
+          path: artifact/**
+          if-no-files-found: error
